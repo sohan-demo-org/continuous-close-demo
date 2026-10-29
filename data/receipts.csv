@@ -1,0 +1,9 @@
+receipt_id,po_id,received_date,amount,note
+RC-0601,PO-2401,2026-10-06,14200.0,Received in full
+RC-0602,PO-2402,2026-10-10,18500.0,Received in full
+RC-0603,PO-2403,2026-10-14,9860.0,Received in full
+RC-0604,PO-2404,2026-10-16,1240.0,Received in full
+RC-0605,PO-2405,2026-10-12,11000.0,Flight 1 of 2 aired
+RC-0606,PO-2406,2026-10-04,4800.0,Received in full
+RC-0607,PO-2407,2026-10-07,7940.0,Received in full
+RC-0608,PO-2408,2026-10-09,12480.0,Received in full

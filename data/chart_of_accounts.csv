@@ -1,0 +1,22 @@
+number,name,type,forecast_method
+4000,Product Revenue,revenue,run_rate
+4100,Service Revenue,revenue,run_rate
+4900,Discounts & Returns,revenue,run_rate
+5000,Cost of Goods Sold,cogs,run_rate
+5100,Freight In,cogs,run_rate
+6000,Salaries & Wages,opex,budget_fill
+6100,Payroll Taxes & Benefits,opex,budget_fill
+6200,Rent,opex,budget_fill
+6300,Utilities,opex,budget_fill
+6400,Marketing & Advertising,opex,run_rate
+6500,Software & Subscriptions,opex,budget_fill
+6600,Travel & Entertainment,opex,run_rate
+6700,Professional Fees,opex,budget_fill
+6800,Insurance,opex,budget_fill
+6900,Bank Fees,opex,run_rate
+6950,Office Supplies,opex,run_rate
+1000,Cash - Operating,asset,none
+1200,Accounts Receivable,asset,none
+1300,Inventory,asset,none
+2000,Accounts Payable,liability,none
+2100,Accrued Liabilities,liability,none

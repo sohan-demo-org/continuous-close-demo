@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Trend{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Day-by-day projection</h1>
+  <p>How the projected close has moved each morning this month. Early in the month the run-rate is noisy; it settles as more of the month is booked.</p></div>
+</div>
+<div class="grid two">
+  <div class="card"><h2>Projected operating income <small>vs budget</small></h2><div class="chart-wrap"><canvas id="oi"></canvas></div></div>
+  <div class="card"><h2>Projected revenue <small>vs budget</small></h2><div class="chart-wrap"><canvas id="rev"></canvas></div></div>
+</div>
+<div class="grid two section">
+  <div class="card"><h2>Open mismatches &amp; accruals <small>per morning</small></h2><div class="chart-wrap sm"><canvas id="hyg"></canvas></div></div>
+  <div class="card"><h2>Projected gross margin &amp; opex <small>vs budget</small></h2><div class="chart-wrap sm"><canvas id="gm"></canvas></div></div>
+</div>
+<div class="card section">
+  <h2>Snapshots</h2>
+  <table>
+    <thead><tr><th>Morning of</th><th class="num">Revenue MTD</th><th class="num">Projected revenue</th><th class="num">OI MTD (incl. accruals)</th><th class="num">Projected OI</th><th class="num">vs budget</th><th class="num">Accruals</th><th class="num">Mismatches</th></tr></thead>
+    <tbody>
+    {% for d in trend | reverse %}
+    <tr>
+      <td>{{ d.as_of | dt('%a %b %-d') }}</td>
+      <td class="num">{{ d.revenue_actual | money }}</td><td class="num">{{ d.revenue_projected | money }}</td>
+      <td class="num">{{ d.oi_actual | money }}</td><td class="num"><b>{{ d.oi_projected | money }}</b></td>
+      <td class="num {{ 'good' if d.oi_projected >= d.oi_budget else 'bad' }}">{{ (d.oi_projected - d.oi_budget) | signed }}</td>
+      <td class="num">{{ d.accruals | money }}</td>
+      <td class="num">{{ d.mismatches }} <span class="muted">({{ d.mismatch_amount | money }})</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const t = {{ trend | tojson | safe }};
+const labels = t.map(d => 'Day ' + d.day);
+const money = { callbacks: { label: c => c.dataset.label + ': ' + fmtUSD(c.parsed.y) } };
+const base = { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+  plugins: { legend: { position: 'bottom' }, tooltip: money },
+  scales: { y: { ticks: { callback: fmtK }, grid: { color: '#eef2f7' } }, x: { grid: { display: false } } } };
+const line = (label, key, color, extra = {}) => ({ label, data: t.map(d => d[key]), borderColor: color, backgroundColor: color, tension: .3, pointRadius: 3, ...extra });
+const budget = (label, key) => ({ label, data: t.map(d => d[key]), borderColor: '#0f172a', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5 });
+new Chart(document.getElementById('oi'), { type: 'line', data: { labels, datasets: [
+  line('Projected close', 'oi_projected', '#2563eb', { fill: { target: { value: t[0].oi_budget }, above: 'rgba(21,128,61,.08)', below: 'rgba(185,28,28,.08)' } }),
+  line('MTD actual + accruals', 'oi_actual', '#94a3b8', { borderDash: [2, 3], pointRadius: 0 }),
+  budget('Budget', 'oi_budget') ] }, options: base });
+new Chart(document.getElementById('rev'), { type: 'line', data: { labels, datasets: [
+  line('Projected close', 'revenue_projected', '#0891b2'), line('MTD actual', 'revenue_actual', '#94a3b8', { borderDash: [2, 3], pointRadius: 0 }), budget('Budget', 'revenue_budget') ] }, options: base });
+new Chart(document.getElementById('gm'), { type: 'line', data: { labels, datasets: [
+  line('Projected gross margin', 'gm_projected', '#16a34a'), budget('GM budget', 'gm_budget'),
+  line('Projected opex', 'opex_projected', '#d97706'), { ...budget('Opex budget', 'opex_budget'), borderColor: '#b45309' } ] }, options: base });
+new Chart(document.getElementById('hyg'), { type: 'bar', data: { labels, datasets: [
+  { label: 'Open mismatches', data: t.map(d => d.mismatches), backgroundColor: '#fca5a5', yAxisID: 'y', order: 2 },
+  { label: 'Accruals ($)', data: t.map(d => d.accruals), type: 'line', borderColor: '#2563eb', backgroundColor: '#2563eb', yAxisID: 'y1', tension: .3, pointRadius: 2, order: 1 } ] },
+  options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#eef2f7' } }, y1: { position: 'right', beginAtZero: true, ticks: { callback: fmtK }, grid: { display: false } }, x: { grid: { display: false } } } } });
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+[project]
+name = "continuous-close"
+version = "0.1.0"
+description = "Continuous Close demo: every morning, 'if the month ended today, here's where we'd be — and where we'll likely finish.'"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.1",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "jinja2>=3.1",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+cc = "continuous_close.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["continuous_close"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
