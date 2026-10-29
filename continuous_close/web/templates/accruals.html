@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Accruals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Accruals</h1>
+  <p>One rule, applied every morning: anything received against a purchase order with no vendor invoice posted yet is accrued to the PO's expense account (Dr expense / Cr 2100 Accrued Liabilities) and rolled into the projection.</p></div>
+</div>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Accrued today</div><div class="value">{{ accrual_total | money }}</div><div class="sub">{{ accruals | length }} received-not-invoiced item{{ '' if accruals | length == 1 else 's' }}</div></div>
+  <div class="card kpi"><div class="label">Oldest waiting</div><div class="value">{{ (accruals | map(attribute='days_waiting') | max) if accruals else 0 }} days</div><div class="sub">since goods were received</div></div>
+  <div class="card kpi"><div class="label">Largest</div><div class="value">{{ (accruals[0].accrual_amount | money) if accruals else '—' }}</div><div class="sub">{{ accruals[0].vendor if accruals else '' }}</div></div>
+  <div class="card kpi"><div class="label">Open POs</div><div class="value">{{ pos | length }}</div><div class="sub">{{ pos | sum(attribute='amount') | money }} committed this month</div></div>
+</div>
+<div class="card section">
+  <h2>Proposed accrual entries <small>Dr expense · Cr 2100 Accrued Liabilities</small></h2>
+  {% if not accruals %}<div class="empty">Nothing received without an invoice.</div>{% else %}
+  <table>
+    <thead><tr><th>PO</th><th>Vendor · description</th><th>Expense account</th><th class="num">PO amount</th><th class="num">Received</th><th class="num">Invoiced</th><th class="num">Accrue</th><th>Received</th><th class="num">Waiting</th></tr></thead>
+    <tbody>
+    {% for a in accruals %}
+    <tr>
+      <td class="mono">{{ a.po_id }}</td>
+      <td><b>{{ a.vendor }}</b><br><span class="muted">{{ a.description }}</span></td>
+      <td><span class="mono muted">{{ a.account }}</span> {{ a.account_name }}</td>
+      <td class="num">{{ a.po_amount | money }}</td>
+      <td class="num">{{ a.received_amount | money }}</td>
+      <td class="num muted">{{ a.invoiced_amount | money }}</td>
+      <td class="num"><b>{{ a.accrual_amount | money }}</b></td>
+      <td>{{ a.received_date | dt }}</td>
+      <td class="num"><span class="pill {{ 'warn' if a.days_waiting > 7 else 'neutral' }}">{{ a.days_waiting }}d</span></td>
+    </tr>
+    {% endfor %}
+    <tr class="subtotal"><td colspan="6">Total accrued</td><td class="num">{{ accrual_total | money }}</td><td colspan="2"></td></tr>
+    </tbody>
+  </table>{% endif %}
+</div>
+<div class="card section">
+  <h2>Purchase order status <small>everything ordered this month</small></h2>
+  <table>
+    <thead><tr><th>PO</th><th>Vendor</th><th>Description</th><th>Ordered</th><th class="num">Amount</th><th class="num">Received</th><th class="num">Invoiced</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in pos %}
+    <tr>
+      <td class="mono">{{ p.po_id }}</td><td>{{ p.vendor }}</td><td class="muted">{{ p.description }}</td><td>{{ p.order_date | dt }}</td>
+      <td class="num">{{ p.amount | money }}</td><td class="num">{{ p.received | money }}</td><td class="num">{{ p.invoiced | money }}</td>
+      <td>{% if p.received == 0 %}<span class="pill neutral">Open – not received</span>{% elif p.invoiced + 0.005 < p.received %}<span class="pill warn">Received, not invoiced</span>{% else %}<span class="pill good">Invoiced</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

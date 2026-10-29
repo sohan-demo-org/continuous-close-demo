@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Scoreboard{% endblock %}
+{% set oi = sb.by_key.operating_income %}{% set rev = sb.by_key.revenue %}{% set gm = sb.by_key.gross_margin %}{% set opex = sb.by_key.opex %}
+{% block content %}
+<div class="page-head">
+  <div><h1>If the month ended today…</h1>
+  <p>Projected close for {{ hdr.as_of | dt('%B') }} = MTD actuals + accruals + forecast for the remaining {{ hdr.days_left }} days, compared to budget.</p></div>
+  <div class="chips">
+    <span class="chip">Auto-cleared <b>{{ stats.auto_clear_pct }}%</b></span>
+    <span class="chip">Open mismatches <b class="{{ 'bad' if stats.open else 'good' }}">{{ stats.open }} · {{ stats.open_amount | money }}</b></span>
+    <span class="chip">Accrued <b>{{ accrual_total | money }}</b></span>
+    {% if hdr.run_at %}<span class="chip">Pipeline ran <b>{{ hdr.run_at[11:16] }}</b></span>{% endif %}
+  </div>
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi hero">
+    <div class="label">Projected operating income</div>
+    <div class="value">{{ oi.projected | money }}</div>
+    <div class="sub">Budget {{ oi.budget | money }} ·
+      <span class="pill {{ 'good' if oi.variance >= 0 else 'bad' }}">{{ oi.variance | signed }} ({{ '%+.1f' % oi.variance_pct }}%)</span>
+      {% if oi.delta is defined %}<br>{{ oi.delta | signed }} vs yesterday's projection{% endif %}</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Where we'd be today</div>
+    <div class="value">{{ (oi.actual + oi.accrual) | money }}</div>
+    <div class="sub">Operating income MTD incl. {{ oi.accrual | money }} accruals · {{ hdr.pct_elapsed }}% of month elapsed</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Projected revenue</div>
+    <div class="value">{{ rev.projected | money }}</div>
+    <div class="sub">Budget {{ rev.budget | money }} · <span class="delta {{ 'good' if rev.variance >= 0 else 'bad' }}">{{ rev.variance | signed }}</span> · {{ rev.actual | money }} booked so far</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Projected gross margin</div>
+    <div class="value">{{ '%.1f' % (gm.projected / rev.projected * 100 if rev.projected else 0) }}%</div>
+    <div class="sub">Budget {{ '%.1f' % (gm.budget / rev.budget * 100 if rev.budget else 0) }}% · {{ gm.projected | money }} vs {{ gm.budget | money }}</div>
+  </div>
+</div>
+
+<div class="grid two section">
+  <div class="card">
+    <h2>Scoreboard <small>projected close vs budget</small></h2>
+    <table>
+      <thead><tr><th>Line</th><th class="num">MTD actual</th><th class="num">Accruals</th><th class="num">Forecast</th><th class="num">Projected</th><th class="num">Budget</th><th class="num">Variance</th><th style="width:160px">Progress to budget</th></tr></thead>
+      <tbody>
+      {% for r in sb.rollups %}
+      <tr class="{{ 'subtotal' if r.is_subtotal }}">
+        <td>{{ r.label }}</td>
+        <td class="num">{{ r.actual | money }}</td>
+        <td class="num {{ 'muted' if not r.accrual }}">{{ r.accrual | money }}</td>
+        <td class="num muted">{{ r.forecast | money }}</td>
+        <td class="num"><b>{{ r.projected | money }}</b></td>
+        <td class="num">{{ r.budget | money }}</td>
+        <td class="num {{ 'good' if r.variance >= 0 else 'bad' }}">{{ r.variance | signed }}<br><small>{{ '%+.1f' % r.variance_pct }}%</small></td>
+        <td>{% set scale = [r.projected, r.budget] | map('abs') | max %}{% if scale > 0 %}
+          {% set a = (r.actual | abs) / scale * 100 %}{% set b = (r.accrual | abs) / scale * 100 %}{% set c = (r.forecast | abs) / scale * 100 %}
+          <div class="bar"><span class="fcst" style="width:{{ [a + b + c, 100] | min }}%"></span><span class="accr" style="width:{{ [a + b, 100] | min }}%"></span><span style="width:{{ [a, 100] | min }}%"></span><i style="left:{{ [(r.budget | abs) / scale * 100, 99] | min }}%"></i></div>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="legend"><span>MTD actual</span><span class="accr">Accruals</span><span class="fcst">Forecast</span><span class="budget">Budget</span></div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Projection trend <small>operating income, by morning</small></h2>
+      <div class="chart-wrap sm"><canvas id="spark"></canvas></div>
+      <p class="footnote"><a href="/trend" style="color:var(--accent)">Open the day-by-day trend →</a></p>
+    </div>
+    <div class="card section">
+      <h2>Needs attention <small><a href="/mismatches" style="color:var(--accent)">all mismatches →</a></small></h2>
+      {% if mismatches %}<ul class="list">
+      {% for m in mismatches %}<li><div><div class="t">{{ m.type_label }} <span class="pill {{ 'bad' if m.severity == 'high' else ('warn' if m.severity == 'medium' else 'neutral') }}">{{ m.severity }}</span></div><div class="d">{{ m.counterparty }} · {{ m.ref }} · {{ m.txn_date | dt }}</div></div><div class="num"><b>{{ (m.difference | abs) | money(2) }}</b></div></li>{% endfor %}
+      </ul>{% else %}<div class="empty">Everything reconciles.</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card section">
+  <h2>By account <small>{{ sb.accounts | length }} P&amp;L accounts · run-rate accounts extrapolate MTD, fixed accounts fill to budget</small></h2>
+  <table>
+    <thead><tr><th>Account</th><th>Forecast method</th><th class="num">MTD actual</th><th class="num">Accruals</th><th class="num">Forecast</th><th class="num">Projected</th><th class="num">Budget</th><th class="num">Variance</th></tr></thead>
+    <tbody>
+    {% for grp, label in [('revenue', 'Revenue'), ('cogs', 'Cost of sales'), ('opex', 'Operating expenses')] %}
+    <tr class="group"><td colspan="8">{{ label }}</td></tr>
+    {% for a in sb.accounts if a.type == grp %}
+    <tr>
+      <td><span class="mono muted">{{ a.account }}</span> {{ a.name }}</td>
+      <td><span class="pill {{ 'info' if a.method == 'run_rate' else 'neutral' }}">{{ 'Run-rate' if a.method == 'run_rate' else 'Fill to budget' }}</span></td>
+      <td class="num">{{ a.actual | money }}</td>
+      <td class="num {{ 'muted' if not a.accrual }}">{{ a.accrual | money }}</td>
+      <td class="num muted">{{ a.forecast | money }}</td>
+      <td class="num"><b>{{ a.projected | money }}</b></td>
+      <td class="num">{{ a.budget | money }}</td>
+      <td class="num {{ 'good' if a.variance >= 0 else 'bad' }}">{{ a.variance | signed }} <small>({{ '%+.1f' % a.variance_pct }}%)</small></td>
+    </tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const t = {{ trend | tojson | safe }};
+new Chart(document.getElementById('spark'), {
+  type: 'line',
+  data: { labels: t.map(d => 'D' + d.day), datasets: [
+    { label: 'Projected OI', data: t.map(d => d.oi_projected), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)', fill: true, tension: .3, pointRadius: 2 },
+    { label: 'Budget', data: t.map(d => d.oi_budget), borderColor: '#0f172a', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5 } ] },
+  options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtUSD(c.parsed.y) } } },
+    scales: { y: { ticks: { callback: fmtK }, grid: { color: '#eef2f7' } }, x: { grid: { display: false } } } }
+});
+</script>
+{% endblock %}

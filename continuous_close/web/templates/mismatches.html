@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Mismatches{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Bank reconciliation</h1>
+  <p>Every GL cash line is matched to the bank statement by reference and amount, then by counterparty and amount. Whatever is left is listed here with the most likely reason.</p></div>
+</div>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Auto-cleared</div><div class="value">{{ stats.cleared }}</div><div class="sub">{{ stats.auto_clear_pct }}% of {{ stats.cleared + stats.open }} cash items · {{ stats.cleared_amount | money }}</div></div>
+  <div class="card kpi"><div class="label">Open mismatches</div><div class="value {{ 'bad' if stats.open else 'good' }}">{{ stats.open }}</div><div class="sub">{{ stats.open_amount | money(2) }} unexplained</div></div>
+  <div class="card kpi"><div class="label">High severity</div><div class="value">{{ mismatches | selectattr('severity', 'equalto', 'high') | list | length }}</div><div class="sub">needs a decision today</div></div>
+  <div class="card kpi"><div class="label">Bank lines loaded</div><div class="value">{{ stats.bank_txns }}</div><div class="sub">through {{ hdr.as_of | dt }}</div></div>
+</div>
+<div class="card section">
+  <h2>Open items <small>sorted by severity, then amount</small></h2>
+  {% if not mismatches %}<div class="empty">Books and bank agree. Nothing to see here.</div>{% endif %}
+  {% for m in mismatches %}
+  <div class="mm">
+    <div>
+      <div class="type">{{ m.type_label }}</div>
+      <div style="margin:6px 0"><span class="pill {{ 'bad' if m.severity == 'high' else ('warn' if m.severity == 'medium' else 'neutral') }}">{{ m.severity }}</span></div>
+      <div class="meta">{{ m.counterparty }}<br>{{ m.ref or '—' }} · {{ m.txn_date | dt }}<br><span class="mono">{{ m.mismatch_id }}</span></div>
+    </div>
+    <div>
+      <div class="amounts">
+        <div><b>Books</b><span class="num">{{ m.book_amount | money(2) if m.book_entry_id else '—' }}</span>{% if m.book_entry_id %} <span class="muted mono">{{ m.book_entry_id }}</span>{% endif %}</div>
+        <div><b>Bank</b><span class="num">{{ m.bank_amount | money(2) if m.bank_txn_id else '—' }}</span>{% if m.bank_txn_id %} <span class="muted mono">{{ m.bank_txn_id }}</span>{% endif %}</div>
+        <div><b>Difference</b><span class="num {{ 'bad' if m.severity == 'high' }}">{{ (m.difference | abs) | money(2) }}</span></div>
+      </div>
+      <p class="reason">{{ m.likely_reason }}</p>
+    </div>
+    <div class="action"><b>Suggested action</b>{{ m.suggested_action }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

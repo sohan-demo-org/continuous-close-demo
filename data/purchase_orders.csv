@@ -1,0 +1,11 @@
+po_id,vendor,account,amount,order_date,description
+PO-2401,Harborline Logistics,5100,14200.0,2026-10-01,Inbound freight - week 1
+PO-2402,Blue Ridge Print Co.,6400,18500.0,2026-10-04,Q4 retail point-of-sale displays
+PO-2403,Northgate Freight,5100,9860.0,2026-10-08,Inbound freight - cold chain
+PO-2404,Clearwater Office Supply,6950,1240.0,2026-10-12,Warehouse office supplies
+PO-2405,Lakeside Media Group,6400,22000.0,2026-10-05,Regional radio campaign (2 flights)
+PO-2406,Meridian IT Services,6500,4800.0,2026-10-02,Warehouse scanner firmware upgrade
+PO-2407,Harborline Logistics,5100,7940.0,2026-10-03,Inbound freight - week 2
+PO-2408,Keystone Packaging,5000,12480.0,2026-10-06,Shrink wrap & case trays
+PO-2409,Northgate Freight,5100,6300.0,2026-10-15,Inbound freight - week 4
+PO-2410,Lakeside Media Group,6400,15000.0,2026-10-17,Digital retargeting - November
