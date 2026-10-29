@@ -20,7 +20,7 @@ def fav(x: float) -> str:
 
 
 def build_summary(db_path: Path = DB_PATH) -> str:
-    con = connect(db_path, read_only=True)
+    con = connect(db_path)
     try:
         state = reporting.current_state(con)
         sb = reporting.scoreboard(con, state.as_of)

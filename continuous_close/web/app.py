@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -11,6 +12,10 @@ from fastapi.templating import Jinja2Templates
 
 from .. import config, reporting
 from ..db import connect
+
+# DuckDB refuses mixed read-only/read-write handles on one file inside a process, and a page
+# rendered mid-pipeline would show a half-written snapshot, so reads and actions take one lock.
+DB_LOCK = threading.Lock()
 
 HERE = Path(__file__).parent
 app = FastAPI(title="Continuous Close")
@@ -49,7 +54,12 @@ templates.env.filters.update(money=money, signed=signed, compact=compact,
 
 
 def render(request: Request, name: str, **ctx) -> HTMLResponse:
-    con = connect(config.DB_PATH, read_only=True)
+    with DB_LOCK:
+        return _render(request, name, **ctx)
+
+
+def _render(request: Request, name: str, **ctx) -> HTMLResponse:
+    con = connect(config.DB_PATH)
     try:
         state = reporting.current_state(con)
         base = {"request": request, "hdr": reporting.header(con, state), "view": name,
@@ -65,7 +75,7 @@ def render(request: Request, name: str, **ctx) -> HTMLResponse:
 def scoreboard(request: Request):
     return render(request, "scoreboard", sb=lambda con, s: reporting.scoreboard(con, s.as_of),
                   trend=lambda con, s: reporting.trend(con, s.as_of),
-                  mismatches=lambda con, s: reporting.mismatches(con, s.as_of)[:3])
+                  mismatches=lambda con, s: reporting.mismatches(con, s.as_of)[:5])
 
 
 @app.get("/mismatches", response_class=HTMLResponse)
@@ -87,12 +97,18 @@ def trend(request: Request):
 @app.get("/summary.md", response_class=PlainTextResponse)
 def summary_md():
     from ..summary import build_summary
-    return build_summary(config.DB_PATH)
+    with DB_LOCK:
+        return build_summary(config.DB_PATH)
 
 
 @app.get("/api/scoreboard")
 def api_scoreboard():
-    con = connect(config.DB_PATH, read_only=True)
+    with DB_LOCK:
+        return _api_scoreboard()
+
+
+def _api_scoreboard():
+    con = connect(config.DB_PATH)
     try:
         state = reporting.current_state(con)
         sb = reporting.scoreboard(con, state.as_of)
@@ -105,8 +121,9 @@ def api_scoreboard():
 def action_simulate_day():
     from ..datagen import simulate_next_day
     from ..pipeline import run_pipeline
-    simulate_next_day(config.DATA_DIR)
-    run_pipeline(config.DATA_DIR, config.DB_PATH)
+    with DB_LOCK:
+        simulate_next_day(config.DATA_DIR)
+        run_pipeline(config.DATA_DIR, config.DB_PATH)
     return RedirectResponse("/", status_code=303)
 
 
@@ -114,6 +131,7 @@ def action_simulate_day():
 def action_reset():
     from ..datagen import generate_seed
     from ..pipeline import run_pipeline
-    generate_seed(config.DATA_DIR, config.load_state(config.DATA_DIR).month_start)
-    run_pipeline(config.DATA_DIR, config.DB_PATH)
+    with DB_LOCK:
+        generate_seed(config.DATA_DIR, config.load_state(config.DATA_DIR).month_start)
+        run_pipeline(config.DATA_DIR, config.DB_PATH)
     return RedirectResponse("/", status_code=303)
